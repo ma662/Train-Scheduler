@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <!-- <meta http-equiv="X-UA-Compatible" content="IE=edge"> -->
+    <title>Train Scheduler</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- <link rel="stylesheet" type="text/css" media="screen" href="main.css" /> -->
+    <!-- <script src="main.js"></script> -->
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery.js"></script>
+
+    <!-- Moment JS -->
+    <script src="https://cdn.jsdelivr.net/momentjs/2.12.0/moment.min.js"></script>
+
+    <!-- Firebase -->
+</head>
+<body>
+
+<style>
+    table, th, td {
+    border: 1px solid black;
+    text-align: center;
+    }
+
+    h2, p {
+        text-align: center;
+    }
+
+    #train-schedule-div{
+        margin-left: auto;
+        margin-right: auto;
+        text-align: center;
+    }
+</style>
+
+<h2>Train Scheduler</h2>
+<p>by Myles Alcala</p>
+<div id="train-schedule-div">
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">Train Name</th>
+                <th scope="col">Destination</th>
+                <th scope="col">Frequency (mins)</th>
+                <th scope="col">Next Arrival</th>
+                <th scope="col">Minutes Remaining</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- POPULATE WITH <TD> TRAIN DATA, CALCULATE TIME REMAINING, THROW IN WITH JQUERY -->
+            
+        </tbody>
+
+    </table>
+</div>
+
+<div id="add-train-div">
+    <label>Add a New Train</label>
+    <form>
+        <label>Train Name: </label>
+        <input id="tname" type="text" required>
+
+        <label>Destination: </label>
+        <input id="tdest" type="text" required>
+
+        <label>First Train Time: </label>
+        <input id="ttime" type="time" required>
+
+        <label>Frequency: </label>
+        <input id="tfreq" type="number" required>
+
+        <button type="submit" id="submit-train">Submit This Train</button>
+    </form>
+</div>
+
+    <script src="https://www.gstatic.com/firebasejs/5.8.0/firebase.js"></script>
+    <script>
+        var debugVar = null;
+        // Initialize Firebase
+        var config = {
+            apiKey: "AIzaSyBJAu0SdcrHNBMat9cG5TyHLJRATYf0tkI",
+            authDomain: "train-scheduler-23cd9.firebaseapp.com",
+            databaseURL: "https://train-scheduler-23cd9.firebaseio.com",
+            projectId: "train-scheduler-23cd9",
+            storageBucket: "train-scheduler-23cd9.appspot.com",
+            messagingSenderId: "148368336965"
+        };
+        firebase.initializeApp(config);
+
+        var database = firebase.database();
+
+        // var tsd = $("#train-schedule-div");
+        // var tArr = ["Path Train JSQ to Newark"];
+
+        // var lastKey; 
+        
+        console.log(moment().format());
+
+        $("#submit-train").on("click", function(e){
+            e.preventDefault();
+
+            var tName = $("#tname").val();
+            var tDest = $("#tdest").val();
+            var tTime = $("#ttime").val();
+            var tFreq = $("#tfreq").val();
+
+            console.log({
+                thisObj: "Data I'm Packing!",
+                tName: tName,
+                tDest: tDest,
+                tTime: tTime,
+                tFreq: tFreq
+            });
+
+            // pack into firebase query
+            // lastKey = 
+            database.ref('trains/').push({
+                name : tName,   
+                destination : tDest,
+                time : tTime,
+                freq : tFreq
+            });
+            // .key;
+
+            // console.log(lastKey);
+        });
+        
+        
+        // function that pulls firebase shit and updates LISTENER FUNCTION
+        database.ref().on("value", function(snapshot) {
+            debugVar = snapshot.val();
+            
+            // clear the trains to refill
+            var tbody = $("tbody").empty();
+            
+            //add td of all the snapshot data in a tr
+            for (var i=0; i<Object.keys(snapshot.val()["trains"]).length; i++){
+                console.log("train "+i);
+                
+                var thisKey = Object.keys(snapshot.val()["trains"])[i];
+                console.log(thisKey);
+                
+                var trainInfo = snapshot.val()["trains"][thisKey];
+                console.log(trainInfo);
+                
+                // APPLY TRAIN CALCULATIONS BEFORE APPENDING
+                // Calculation Area
+                        var firstTime = trainInfo.time;
+                        var tFrequency = trainInfo.freq;
+                        console.log({
+                            firstTime: firstTime,
+                            tFrequency: tFrequency,
+                        });
+
+                        // First Time (pushed back 1 year to make sure it comes before current time)
+                        var firstTimeConverted = moment(firstTime, "HH:mm").subtract(1, "years");
+                        firstTimeConverted._isUTC = true;
+                        console.log(firstTimeConverted);
+
+                        // Current Time
+                        var currentTime = moment();
+                        console.log("CURRENT TIME: " + moment(currentTime).format("hh:mm"));
+
+                        // Difference between the times
+                        var diffTime = moment().diff(moment(firstTimeConverted), "minutes");
+                        console.log("DIFFERENCE IN TIME: " + diffTime);
+
+                        // Time apart (remainder)
+                        var tRemainder = diffTime % tFrequency;
+                        console.log(tRemainder);
+
+                        // Minute Until Train
+                        var tMinutesTillTrain = tFrequency - tRemainder;
+                        console.log("MINUTES TILL TRAIN: " + tMinutesTillTrain);
+
+                        // Next Train
+                        var nextTrain = moment().add(tMinutesTillTrain, "minutes");
+                        console.log("ARRIVAL TIME: " + moment(nextTrain).format("hh:mm"));
+
+
+                var newRow = $("<tr>");
+                $("<td>").text(trainInfo.name).appendTo(newRow);
+                $("<td>").text(trainInfo.destination).appendTo(newRow);
+                // $("<td>").text(trainInfo.time).appendTo(newRow);
+                $("<td>").text(trainInfo.freq).appendTo(newRow);
+                $("<td>").text(moment(nextTrain).format("hh:mm")).appendTo(newRow);
+                $("<td>").text(tMinutesTillTrain.toString()).appendTo(newRow);
+
+                newRow.appendTo(tbody);
+            }
+        });
+        
+    </script>
+</body>
+</html>
